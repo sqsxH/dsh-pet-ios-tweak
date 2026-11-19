@@ -24,19 +24,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Theos + iOS SDK + tools
+      - name: Install Theos + iOS SDK + toolchain + tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential git curl unzip python3 dpkg-dev ffmpeg file xz-utils
+          sudo apt-get install -y build-essential git curl unzip python3 dpkg-dev ffmpeg file xz-utils libtinfo6
           git clone --recursive https://github.com/theos/theos.git $HOME/theos
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
           echo "$HOME/theos/bin" >> $GITHUB_PATH
+          # iOS SDK
           curl -L -o /tmp/sdks.zip https://github.com/theos/sdks/archive/refs/heads/master.zip
           unzip -q /tmp/sdks.zip -d /tmp
           mkdir -p "$HOME/theos/sdks"
           cp -r /tmp/sdks-master/iPhoneOS16.5.sdk "$HOME/theos/sdks/"
           test -f "$HOME/theos/sdks/iPhoneOS16.5.sdk/System/Library/Frameworks/UIKit.framework/UIKit.tbd"
           echo "SDK ready"
+          # Theos iOS toolchain is NOT part of the git repo; download the
+          # official non-Swift cross toolchain (L1ghtmann/llvm-project release).
+          mkdir -p "$HOME/theos/toolchain"
+          curl -sL https://github.com/L1ghtmann/llvm-project/releases/latest/download/iOSToolchain-x86_64.tar.xz | tar -xJf - -C "$HOME/theos/toolchain/"
+          test -x "$HOME/theos/toolchain/linux/iphone/bin/clang"
+          "$HOME/theos/toolchain/linux/iphone/bin/clang" --version | head -1
+          echo "Toolchain ready"
 
       - name: Prepare animation assets
         run: |
