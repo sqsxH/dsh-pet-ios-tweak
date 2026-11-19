@@ -33,7 +33,7 @@ TWEAK_NAME = dshpet
 
 dshpet_FILES = Tweak.xm PetManager.xm PetOverlayWindow.xm PetView.xm
 dshpet_FRAMEWORKS = UIKit CoreGraphics QuartzCore Foundation
-dshpet_CFLAGS = -DPET_RESOURCE_DIR='"$(PET_RESOURCE_DIR)/"' -Wall -Wno-unused-parameter -fobjc-arc
+dshpet_CFLAGS = -DPET_RESOURCE_DIR='"$(PET_RESOURCE_DIR)/"' -Wall -Wno-unused-parameter -Wno-unused-const-variable -fobjc-arc
 
 # Theos 默认查找 $(TWEAK_NAME).plist；工程规范文件名是 com.yourid.dshpet.plist。
 # 下面规则在打包前同步二者，修改 filter 时只需改规范文件。
