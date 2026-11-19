@@ -63,6 +63,8 @@ jobs:
         working-directory: tweak
         run: |
           make clean || true
+          # ensure the filter plist exists at stage time (make clean used to delete it)
+          cp -f com.yourid.dshpet.plist dshpet.plist
           THEOS_PACKAGE_SCHEME=rootless TARGET="iphone:clang:16.5:15.0" make package
 
       - name: Verify package
