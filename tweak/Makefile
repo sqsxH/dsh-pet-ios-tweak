@@ -60,5 +60,6 @@ before-package::
 		echo "[dshpet] 警告: 素材目录为空，请先运行 tools/transcode-webm/transcode.sh"; \
 	fi
 
-after-clean::
-	@rm -f dshpet.plist
+# NOTE: do NOT delete dshpet.plist in after-clean. Theos needs it at the
+# stage step of the NEXT make package; removing it here broke CI packaging.
+# dshpet.plist is a checked-in copy of com.yourid.dshpet.plist.
