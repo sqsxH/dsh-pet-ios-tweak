@@ -1,0 +1,15 @@
+Package: com.yourid.dshpet
+Name: dsh-pet
+Version: 0.0.1
+Section: Tweaks
+Priority: optional
+Architecture: iphoneos-arm64
+Depends: firmware (>= 15.0), mobilesubstrate (>= 0.9.7100) | ellekit
+Maintainer: YourID <you@example.com>
+Author: YourID
+Description: Floating desktop pet for SpringBoard (rootless)
+ dsh-pet renders an animated, draggable, tappable floating pet on the
+ iOS home screen inside SpringBoard. First release: transparent
+ passthrough overlay window, sequence-frame animation, drag with
+ spring-back and screen clamping, and 5-way tap response animations.
+ Rootless (/var/jb) build.
