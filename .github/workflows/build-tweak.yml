@@ -1,8 +1,10 @@
-name: Build dsh-pet iOS tweak (rootless arm64e)
+name: Build dsh-pet iOS tweak (rootless arm64)
 
-# iPhone 12 = A14 = arm64e 新 ABI。SpringBoard 是系统二进制，Linux/WSL2
-# 无法原生产出新 arm64e ABI，故本工程用 macOS runner 云端编译。
-# 产物：rootless .deb（/var/jb），可直接装到 Dopamine / palera1n rootless。
+# The account cannot allocate macOS runners (macos-14/macos-latest jobs are
+# cancelled instantly with 0 steps; ubuntu runners work). So build on Linux
+# with Theos cross-compilation. Output: arm64 dylib, loadable by arm64e
+# SpringBoard (arm64e processes accept arm64 tweaks; new arm64e ABI needs
+# Apple clang which is unavailable on Linux). rootless layout under /var/jb.
 
 on:
   workflow_dispatch:
@@ -14,63 +16,58 @@ on:
 
 env:
   THEOS_PACKAGE_SCHEME: rootless
-  # iPhone 12 需要 arm64e；同时保留 arm64 提高兼容性
-  ARCHS: 'arm64 arm64e'
 
 jobs:
   build:
-    runs-on: macos-14          # arm64 macOS，Xcode clang 原生产出 arm64e 新 ABI
+    runs-on: ubuntu-22.04
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Theos
+      - name: Install Theos + iOS SDK + tools
         run: |
-          bash -c "$(curl -fsSL https://raw.githubusercontent.com/theos/theos/master/bin/install-theos)"
+          sudo apt-get update
+          sudo apt-get install -y build-essential git curl unzip python3 dpkg-dev ffmpeg file xz-utils
+          git clone --recursive https://github.com/theos/theos.git $HOME/theos
           echo "THEOS=$HOME/theos" >> $GITHUB_ENV
           echo "$HOME/theos/bin" >> $GITHUB_PATH
-
-      - name: Install iOS SDK (16.5, rootless needs iOS 15+)
-        run: |
-          cd $HOME
-          curl -L -o sdks.zip https://github.com/theos/sdks/archive/refs/heads/master.zip
-          unzip -q sdks.zip
-          mkdir -p "$THEOS/sdks"
-          cp -r sdks-master/iPhoneOS16.5.sdk "$THEOS/sdks/"
-          test -f "$THEOS/sdks/iPhoneOS16.5.sdk/System/Library/Frameworks/UIKit.framework/UIKit.tbd"
+          curl -L -o /tmp/sdks.zip https://github.com/theos/sdks/archive/refs/heads/master.zip
+          unzip -q /tmp/sdks.zip -d /tmp
+          mkdir -p "$HOME/theos/sdks"
+          cp -r /tmp/sdks-master/iPhoneOS16.5.sdk "$HOME/theos/sdks/"
+          test -f "$HOME/theos/sdks/iPhoneOS16.5.sdk/System/Library/Frameworks/UIKit.framework/UIKit.tbd"
+          echo "SDK ready"
 
       - name: Prepare animation assets
         run: |
-          # 优先使用仓库内已转码素材（layout/.../dsh-pet/）。
-          # 若为空，则从 npm 拉取 dsh-pet 并用 ffmpeg 转码首版 8 个动画。
           DEST="tweak/layout/Library/Application Support/dsh-pet"
           mkdir -p "$DEST"
-          if [ -z "$(ls -A "$DEST" 2>/dev/null)" ]; then
-            echo "::warning::layout 素材为空，尝试在线转码（需 ffmpeg + VP9 alpha 解码）"
+          COUNT=$(find "$DEST" -mindepth 1 -type d 2>/dev/null | wc -l)
+          if [ "$COUNT" -lt 8 ]; then
+            echo "::warning::assets missing, transcoding from npm dsh-pet@0.4.9"
             npm pack dsh-pet@0.4.9 --silent
             tar -xzf dsh-pet-0.4.9.tgz
-            brew install ffmpeg >/dev/null 2>&1 || true
             SRC_DIR="$PWD/package/assets/webm" OUT_ROOT="$PWD/$DEST" bash tools/transcode-webm/transcode.sh 待机呼吸休闲 东张西望 被鼠标拖拽悬空反馈 点击回应-开心跃动 点击回应-害羞惊讶 点击回应-傲娇生气 点击回应-挠痒咯咯笑 点击回应-元气挥手
           fi
-          echo "素材目录内容："; ls -1 "$DEST"
+          echo "assets tree:"; find "$DEST" -maxdepth 2 -type d | head -20
 
-      - name: Build tweak (rootless, arm64 + arm64e)
+      - name: Build tweak (rootless, arm64)
         working-directory: tweak
         run: |
-          make clean
-          THEOS_PACKAGE_SCHEME=rootless ARCHS="arm64 arm64e" TARGET="iphone:clang:16.5:15.0" make package
+          make clean || true
+          THEOS_PACKAGE_SCHEME=rootless TARGET="iphone:clang:16.5:15.0" make package
 
       - name: Verify package
         run: |
           DEB=$(ls tweak/packages/*.deb | head -1)
           echo "DEB=$DEB"
           dpkg-deb -I "$DEB" | grep -E 'Package|Version|Architecture'
-          echo "--- 包内路径（rootless 应含 /var/jb；二进制含 arm64e slice 由 lipo 验证）---"
-          dpkg-deb -c "$DEB" | head -20
+          echo "--- payload paths (rootless: /var/jb) ---"
+          dpkg-deb -c "$DEB" | head -30
 
       - name: Upload .deb artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dshpet-rootless-arm64e
+          name: dshpet-rootless-arm64
           path: tweak/packages/*.deb
           if-no-files-found: error
