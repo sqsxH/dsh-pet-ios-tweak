@@ -66,6 +66,13 @@ static const CGFloat kBodyAspect = 9.0 / 16.0;    // height = size * 9/16
 
         [self bindPanGesture];
         [self bindTapGesture];
+
+        // 初始位置：屏幕右上角（用户配置 corner=top-right），留出安全区。
+        // 之前 frame 固定在 (0,0) 导致宠物缩在左上角状态栏处，几乎看不见。
+        CGRect scr = [[UIScreen mainScreen] bounds];
+        self.center = CGPointMake(CGRectGetMaxX(scr) - CGRectGetWidth(self.bounds)/2.0 - 24.0,
+                                  CGRectGetMinY(scr) + CGRectGetHeight(self.bounds)/2.0 + 90.0);
+        [self clampCenterToScreen];
     }
     return self;
 }
