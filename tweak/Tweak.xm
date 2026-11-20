@@ -14,7 +14,22 @@
 @end
 
 %ctor {
-    NSLog(@"[dshpet] tweak loaded (rootless skeleton,方案A:独立 passthrough window)");
+    NSLog(@"[dshpet] tweak loaded (方案A:独立 passthrough window)");
+    // 可靠性兜底：不依赖猜测 SpringBoard 私有方法名，直接监听 UIKit
+    // 的 DidFinishLaunching 通知（SpringBoard 作为 UIApplication 会发出）。
+    // PetManager.start 内部有 started 保护，重复触发安全。
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidFinishLaunchingNotification
+        object:nil queue:[NSOperationQueue mainQueue] usingBlock:^(NSNotification *note) {
+        NSLog(@"[dshpet] didFinishLaunching notification received");
+        [[PetManager sharedInstance] start];
+    }];
+    // 再兜一次：延迟 2s 强制 start，覆盖通知在 tweak 加载前已发出的情况。
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.0*NSEC_PER_SEC)),
+                   dispatch_get_main_queue(), ^{
+        [[PetManager sharedInstance] start];
+        [[PetManager sharedInstance] show];
+        NSLog(@"[dshpet] delayed start fallback fired");
+    });
 }
 
 // ---------------------------------------------------------------------
