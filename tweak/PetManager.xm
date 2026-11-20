@@ -28,7 +28,15 @@
 #ifndef PET_RESOURCE_DIR
 #define PET_RESOURCE_DIR "/Library/Application Support/dsh-pet/"
 #endif
-    return ROOT_PATH_NS(@PET_RESOURCE_DIR);
+    NSString *p = ROOT_PATH_NS(@PET_RESOURCE_DIR);
+    // 兜底：Linux 构建无 rootless.h 时 ROOT_PATH_NS 退化为原路径，
+    // 但 deb 实际装在 /var/jb 下。若原路径不存在，手动补前缀。
+    NSFileManager *fm = [NSFileManager defaultManager];
+    if (![fm fileExistsAtPath:p]) {
+        NSString *jb = [@"/var/jb" stringByAppendingString:p];
+        if ([fm fileExistsAtPath:jb]) { p = jb; }
+    }
+    return p;
 }
 
 #pragma mark - 生命周期
@@ -87,6 +95,10 @@
     // 方案 A：独立 window。不要 makeKeyAndVisible，避免抢 SpringBoard 的 keyWindow。
     PetOverlayWindow *window = [PetOverlayWindow windowWithPetView:pet];
     self.overlayWindow = window;
+
+    // 关键修复：启动待机动画。之前只建 window 不启动，UIImageView 无图 → 空白。
+    [pet startAnimation];
+    NSLog(@"[dshpet] overlay created + animation started, pet center=%@", NSStringFromCGPoint(pet.center));
 }
 
 #pragma mark - 显示控制
